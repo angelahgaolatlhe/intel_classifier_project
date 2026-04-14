@@ -34,13 +34,16 @@ intel_classifier_project/
 │   ├── seg_train/
 │   ├── seg_test/
 │   └── seg_pred/
-│
+│── main.py
 │── pytorch_model.py
 │── tensorflow_model.py
-│── main.py
+│── angelah_model.pth
+│── angelah_model.keras
 │── app.py
 │── templates/
+|   └── index.html
 │── static/
+|   └── style.css
 │── requirements.txt
 │── README.md
 ```
