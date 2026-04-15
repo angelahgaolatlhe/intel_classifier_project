@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SceneAI — Intel Scene Classifier</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet"/>
+
+  <style>
+    /* ═══════════════════════════════════════════════════════════════
+       RESET & VARIABLES
+    ═══════════════════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream:      #f5f0e8;
+      --parchment:  #ede5d4;
+      --bark:       #2c1f0e;
+      --forest:     #1a3a2a;
+      --moss:       #3d6b4f;
+      --terra:      #c4622d;
+      --gold:       #d4a843;
+      --sky:        #5b8fa8;
+      --mist:       #a8c4b8;
+      --text:       #1e1408;
+      --text-mid:   #5a4a38;
+      --text-light: #8a7a68;
+      --white:      #ffffff;
+      --r-lg:       20px;
+      --r-md:       12px;
+      --r-sm:       6px;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Space Mono', monospace;
+      background: var(--bark);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       SCREEN SYSTEM
+    ═══════════════════════════════════════════════════════════════ */
+    .screen {
+      position: fixed;
+      inset: 0;
+      transition: opacity 0.65s ease, transform 0.65s cubic-bezier(0.76, 0, 0.24, 1);
+    }
+
+    .screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(30px);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       SCREEN 1 — WELCOME
+    ═══════════════════════════════════════════════════════════════ */
+    #welcome {
+      background: var(--bark);
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* Decorative left panel */
+    .welcome-visual {
+      flex: 0 0 42%;
+      position: relative;
+      background: var(--forest);
+      overflow: hidden;
+    }
+
+    .welcome-visual::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 100% 80% at 50% 120%, rgba(61,107,79,0.9) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 20% 20%, rgba(212,168,67,0.15) 0%, transparent 50%);
+    }
+
+    /* Floating scene labels */
+    .scene-labels {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 14px;
+      padding: 40px;
+    }
+
+    .scene-label {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.6rem, 2.8vw, 2.4rem);
+      font-style: italic;
+      color: rgba(245,240,232,0.12);
+      white-space: nowrap;
+      animation: floatLabel 8s ease-in-out infinite;
+      letter-spacing: 0.02em;
+    }
+
+    .scene-label:nth-child(1) { animation-delay: 0s;    color: rgba(245,240,232,0.22); }
+    .scene-label:nth-child(2) { animation-delay: 1.2s;  color: rgba(212,168,67,0.28); font-size: clamp(2rem, 3.5vw, 3rem); }
+    .scene-label:nth-child(3) { animation-delay: 0.6s;  color: rgba(91,143,168,0.22); }
+    .scene-label:nth-child(4) { animation-delay: 1.8s;  color: rgba(245,240,232,0.18); font-size: clamp(1.8rem, 3vw, 2.6rem); }
+    .scene-label:nth-child(5) { animation-delay: 0.3s;  color: rgba(196,98,45,0.25); }
+    .scene-label:nth-child(6) { animation-delay: 1.5s;  color: rgba(245,240,232,0.14); font-size: clamp(1.4rem, 2.4vw, 2rem); }
+
+    @keyframes floatLabel {
+      0%, 100% { transform: translateY(0px) translateX(0px); }
+      33%       { transform: translateY(-8px) translateX(4px); }
+      66%       { transform: translateY(5px) translateX(-3px); }
+    }
+
+    /* Corner tag */
+    .visual-tag {
+      position: absolute;
+      top: 28px;
+      left: 28px;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(245,240,232,0.45);
+      border: 1px solid rgba(245,240,232,0.15);
+      padding: 5px 10px;
+      border-radius: var(--r-sm);
+    }
+
+    /* Bottom badge on visual */
+    .visual-badge {
+      position: absolute;
+      bottom: 32px;
+      left: 28px;
+      right: 28px;
+      background: rgba(245,240,232,0.06);
+      border: 1px solid rgba(245,240,232,0.12);
+      border-radius: var(--r-md);
+      padding: 16px 18px;
+      backdrop-filter: blur(8px);
+    }
+
+    .visual-badge p {
+      font-size: 0.68rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(245,240,232,0.45);
+      margin-bottom: 6px;
+    }
+
+    .badge-classes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .badge-chip {
+      font-size: 0.65rem;
+      letter-spacing: 0.06em;
+      padding: 3px 9px;
+      border-radius: 100px;
+      font-family: 'Space Mono', monospace;
+    }
+
+    .chip-buildings { background: rgba(196,98,45,0.25);  color: #e8a080; border: 1px solid rgba(196,98,45,0.3); }
+    .chip-forest    { background: rgba(61,107,79,0.35);  color: #90c4a0; border: 1px solid rgba(61,107,79,0.4); }
+    .chip-glacier   { background: rgba(91,143,168,0.25); color: #9ac8dc; border: 1px solid rgba(91,143,168,0.3); }
+    .chip-mountain  { background: rgba(168,196,184,0.15);color: #c0d8d0; border: 1px solid rgba(168,196,184,0.2); }
+    .chip-sea       { background: rgba(91,143,168,0.2);  color: #88b8d0; border: 1px solid rgba(91,143,168,0.25); }
+    .chip-street    { background: rgba(212,168,67,0.2);  color: #d4c080; border: 1px solid rgba(212,168,67,0.25); }
+
+    /* Right content panel */
+    .welcome-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: clamp(40px, 6vw, 80px) clamp(40px, 6vw, 72px);
+      background: var(--cream);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .welcome-content::before {
+      content: '';
+      position: absolute;
+      top: -100px;
+      right: -100px;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(212,168,67,0.08) 0%, transparent 65%);
+      pointer-events: none;
+    }
+
+    .welcome-eyebrow {
+      font-size: 0.65rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--terra);
+      margin-bottom: 20px;
+      animation: riseIn 0.8s 0.1s ease both;
+    }
+
+    .welcome-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2.4rem, 4.5vw, 4rem);
+      font-weight: 900;
+      line-height: 1.08;
+      letter-spacing: -0.02em;
+      color: var(--bark);
+      margin-bottom: 10px;
+      animation: riseIn 0.8s 0.2s ease both;
+    }
+
+    .welcome-title em {
+      font-style: italic;
+      color: var(--moss);
+    }
+
+    .welcome-divider {
+      width: 48px;
+      height: 3px;
+      background: linear-gradient(90deg, var(--terra), var(--gold));
+      border-radius: 2px;
+      margin: 24px 0;
+      animation: riseIn 0.8s 0.3s ease both;
+    }
+
+    .welcome-desc {
+      font-size: 0.88rem;
+      line-height: 1.85;
+      color: var(--text-mid);
+      max-width: 420px;
+      margin-bottom: 36px;
+      animation: riseIn 0.8s 0.35s ease both;
+    }
+
+    /* How it works */
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-bottom: 44px;
+      animation: riseIn 0.8s 0.45s ease both;
+    }
+
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .step-num {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      background: var(--bark);
+      color: var(--cream);
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0;
+      margin-top: 1px;
+    }
+
+    .step-text {
+      font-size: 0.82rem;
+      line-height: 1.6;
+      color: var(--text-mid);
+    }
+
+    .step-text strong {
+      display: block;
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+
+    /* CTA */
+    .cta-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--bark);
+      color: var(--cream);
+      border: none;
+      border-radius: var(--r-md);
+      padding: 18px 32px;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.82rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 20px rgba(44,31,14,0.25);
+      align-self: flex-start;
+      animation: riseIn 0.8s 0.55s ease both;
+    }
+
+    .cta-btn:hover {
+      background: var(--forest);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(44,31,14,0.3);
+    }
+
+    .cta-btn:active { transform: translateY(0); }
+
+    .cta-arrow {
+      width: 24px;
+      height: 24px;
+      background: rgba(245,240,232,0.12);
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 0.7rem;
+      transition: transform 0.2s;
+    }
+
+    .cta-btn:hover .cta-arrow { transform: translateX(3px); }
+
+    @keyframes riseIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+
+    /* ═══════════════════════════════════════════════════════════════
+       SCREEN 2 — CLASSIFIER
+    ═══════════════════════════════════════════════════════════════ */
+    #classifier {
+      background: var(--parchment);
+      display: grid;
+      grid-template-rows: auto 1fr;
+      overflow: hidden;
+    }
+
+    /* Top nav bar */
+    .classifier-nav {
+      background: var(--bark);
+      padding: 0 40px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .nav-logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.1rem;
+      font-style: italic;
+      color: var(--cream);
+      letter-spacing: 0.02em;
+    }
+
+    .nav-logo span {
+      font-style: normal;
+      font-size: 0.6rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-left: 10px;
+      vertical-align: middle;
+    }
+
+    .back-btn {
+      background: none;
+      border: 1px solid rgba(245,240,232,0.2);
+      color: rgba(245,240,232,0.6);
+      border-radius: var(--r-sm);
+      padding: 6px 14px;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.62rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .back-btn:hover {
+      border-color: rgba(245,240,232,0.5);
+      color: var(--cream);
+    }
+
+    /* Main content area */
+    .classifier-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      overflow: hidden;
+    }
+
+    /* ── Left panel: upload ── */
+    .upload-panel {
+      background: var(--cream);
+      border-right: 1px solid rgba(44,31,14,0.1);
+      display: flex;
+      flex-direction: column;
+      padding: 36px 40px;
+      overflow-y: auto;
+    }
+
+    .panel-heading {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--bark);
+      margin-bottom: 4px;
+    }
+
+    .panel-sub {
+      font-size: 0.68rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-light);
+      margin-bottom: 28px;
+    }
+
+    /* Model selector */
+    .field-group { margin-bottom: 24px; }
+
+    .field-label {
+      font-size: 0.62rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-light);
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .select-wrap { position: relative; }
+
+    select {
+      width: 100%;
+      appearance: none;
+      background: var(--parchment);
+      border: 1px solid rgba(44,31,14,0.18);
+      border-radius: var(--r-md);
+      color: var(--text);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.8rem;
+      padding: 12px 40px 12px 14px;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    select:focus { border-color: var(--moss); }
+
+    .select-arrow {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      color: var(--text-light);
+      font-size: 0.65rem;
+    }
+
+    /* Drop zone */
+    .drop-zone {
+      position: relative;
+      border: 2px dashed rgba(44,31,14,0.2);
+      border-radius: var(--r-lg);
+      background: var(--parchment);
+      padding: 32px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.25s, background 0.25s;
+      flex: 1;
+      min-height: 180px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.dragover {
+      border-color: var(--moss);
+      background: rgba(61,107,79,0.04);
+    }
+
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .drop-icon-wrap {
+      width: 52px;
+      height: 52px;
+      background: rgba(44,31,14,0.06);
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 1.5rem;
+      transition: transform 0.3s;
+    }
+
+    .drop-zone:hover .drop-icon-wrap { transform: translateY(-4px); }
+
+    .drop-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--bark);
+    }
+
+    .drop-formats {
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      color: var(--text-light);
+    }
+
+    .drop-formats strong {
+      color: var(--terra);
+      font-weight: 700;
+    }
+
+    /* Preview */
+    #preview-wrap {
+      display: none;
+      margin-top: 18px;
+      border-radius: var(--r-md);
+      overflow: hidden;
+      border: 1px solid rgba(44,31,14,0.12);
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    #preview-wrap.visible { display: block; }
+
+    #preview-img {
+      width: 100%;
+      max-height: 210px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .preview-bar {
+      background: var(--bark);
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .preview-name {
+      font-size: 0.65rem;
+      letter-spacing: 0.06em;
+      color: rgba(245,240,232,0.6);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 200px;
+    }
+
+    .preview-clear {
+      background: none;
+      border: none;
+      color: rgba(245,240,232,0.45);
+      cursor: pointer;
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transition: color 0.2s;
+      font-family: 'Space Mono', monospace;
+    }
+
+    .preview-clear:hover { color: #e88080; }
+
+    /* Classify button */
+    .classify-btn {
+      width: 100%;
+      margin-top: 20px;
+      padding: 15px;
+      background: var(--moss);
+      border: none;
+      border-radius: var(--r-md);
+      color: var(--cream);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.78rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 3px 14px rgba(61,107,79,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .classify-btn:hover:not(:disabled) {
+      background: var(--forest);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(26,58,42,0.35);
+    }
+
+    .classify-btn:disabled {
+      opacity: 0.38;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .spinner {
+      display: none;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(245,240,232,0.3);
+      border-top-color: var(--cream);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    .classify-btn.loading .btn-label { display: none; }
+    .classify-btn.loading .spinner   { display: block; }
+
+    /* ── Right panel: results ── */
+    .result-panel {
+      background: var(--bark);
+      display: flex;
+      flex-direction: column;
+      padding: 36px 40px;
+      overflow-y: auto;
+      position: relative;
+    }
+
+    .result-panel::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 80% 20%, rgba(61,107,79,0.18) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 40% at 20% 80%, rgba(212,168,67,0.08) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .result-panel-head {
+      position: relative;
+      z-index: 1;
+    }
+
+    .result-panel-head .panel-heading { color: var(--cream); margin-bottom: 4px; }
+    .result-panel-head .panel-sub     { color: rgba(245,240,232,0.35); margin-bottom: 28px; }
+
+    /* Empty state */
+    .empty-state {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      text-align: center;
+      padding: 40px;
+      z-index: 1;
+    }
+
+    .empty-icon {
+      font-size: 3rem;
+      opacity: 0.25;
+    }
+
+    .empty-text {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      font-size: 1.05rem;
+      color: rgba(245,240,232,0.25);
+      line-height: 1.6;
+    }
+
+    /* Result content */
+    #result-content {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+    }
+
+    /* Prediction card */
+    .pred-card {
+      background: rgba(245,240,232,0.06);
+      border: 1px solid rgba(245,240,232,0.1);
+      border-radius: var(--r-lg);
+      padding: 28px;
+      animation: fadeUp 0.5s ease both;
+    }
+
+    .pred-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(245,240,232,0.35);
+      margin-bottom: 16px;
+    }
+
+    .pred-class {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2rem, 3.5vw, 3rem);
+      font-weight: 900;
+      color: var(--cream);
+      text-transform: capitalize;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+      line-height: 1;
+    }
+
+    .pred-emoji {
+      font-size: 1.8rem;
+      margin-bottom: 20px;
+      display: block;
+    }
+
+    /* Confidence meter */
+    .conf-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(245,240,232,0.35);
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .conf-label span { color: var(--gold); }
+
+    .conf-track {
+      height: 6px;
+      background: rgba(245,240,232,0.1);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+
+    .conf-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--moss), var(--gold));
+      border-radius: 3px;
+      width: 0%;
+      transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Meta row */
+    .pred-meta {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .meta-pill {
+      background: rgba(245,240,232,0.07);
+      border: 1px solid rgba(245,240,232,0.12);
+      border-radius: 100px;
+      padding: 5px 12px;
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      color: rgba(245,240,232,0.55);
+    }
+
+    .meta-pill strong { color: rgba(245,240,232,0.9); }
+
+    /* All class scores */
+    .all-scores {
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .score-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .score-name {
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      color: rgba(245,240,232,0.45);
+      width: 70px;
+      flex-shrink: 0;
+      text-transform: capitalize;
+    }
+
+    .score-bar-track {
+      flex: 1;
+      height: 4px;
+      background: rgba(245,240,232,0.08);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .score-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      width: 0%;
+      background: rgba(245,240,232,0.2);
+      transition: width 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .score-bar-fill.top { background: linear-gradient(90deg, var(--moss), var(--gold)); }
+
+    .score-pct {
+      font-size: 0.62rem;
+      color: rgba(245,240,232,0.35);
+      width: 38px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    /* Error state */
+    .error-card {
+      background: rgba(196,98,45,0.12);
+      border: 1px solid rgba(196,98,45,0.25);
+      border-radius: var(--r-md);
+      padding: 20px;
+      animation: fadeUp 0.4s ease both;
+    }
+
+    .error-card p {
+      font-size: 0.78rem;
+      color: #e8a080;
+      line-height: 1.6;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       SHARED ANIMATIONS
+    ═══════════════════════════════════════════════════════════════ */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       RESPONSIVE
+    ═══════════════════════════════════════════════════════════════ */
+    @media (max-width: 860px) {
+      #welcome { flex-direction: column; }
+      .welcome-visual { flex: 0 0 220px; }
+      .classifier-body { grid-template-columns: 1fr; }
+      .result-panel { min-height: 300px; }
+      html, body { overflow: auto; }
+      .screen { position: relative; height: auto; min-height: 100vh; }
+    }
+
+    @media (max-width: 520px) {
+      .welcome-content { padding: 32px 24px; }
+      .upload-panel, .result-panel { padding: 28px 24px; }
+      .classifier-nav { padding: 0 24px; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ═══════════════════════════════════════
+       SCREEN 1 — WELCOME
+  ══════════════════════════════════════════ -->
+  <div class="screen" id="welcome">
+
+    <div class="welcome-visual">
+      <div class="visual-tag">Intel Image Classifier</div>
+      <div class="scene-labels">
+        <p>Recognises 6 scene types</p>
+        <span class="scene-label">Buildings</span>
+        <span class="scene-label">Forest</span>
+        <span class="scene-label">Glacier</span>
+        <span class="scene-label">Mountain</span>
+        <span class="scene-label">Sea</span>
+        <span class="scene-label">Street</span>
+      </div>
+      <!-- <div class="visual-badge">
+        <p>Recognises 6 scene types</p>
+        <div class="badge-classes">
+          <span class="badge-chip chip-buildings">Buildings</span>
+          <span class="badge-chip chip-forest">Forest</span>
+          <span class="badge-chip chip-glacier">Glacier</span>
+          <span class="badge-chip chip-mountain">Mountain</span>
+          <span class="badge-chip chip-sea">Sea</span>
+          <span class="badge-chip chip-street">Street</span>
+        </div> -->
+      </div>
+    </div>
+
+    <div class="welcome-content">
+      <p class="welcome-eyebrow">SCENE LENS</p>
+      <h1 class="welcome-title">What does your<br/><em>scene</em> look like?</h1>
+      <div class="welcome-divider"></div>
+      <p class="welcome-desc">
+        SceneLens uses two deep convolutional neural networks built with
+        PyTorch and TensorFlow and trained on the Intel Image Classification
+        dataset to identify natural and urban scenes from a single photograph.
+      </p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-text">
+            <strong>Choose your model</strong>
+            Select between the PyTorch CNN or TensorFlow CNN
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-text">
+            <strong>Upload a photo</strong>
+            Upload a <strong>JPG, PNG or WEBP</strong> image of any outdoor scene — natural or urban.
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-text">
+            <strong>Get your result</strong>
+            See the predicted scene class and confidence score instantly.
+          </div>
+        </div>
+      </div>
+
+      <button class="cta-btn" id="get-started-btn">
+        Get Started
+        <span class="cta-arrow">→</span>
+      </button>
+    </div>
+
+  </div>
+
+
+  <!-- ═══════════════════════════════════════
+       SCREEN 2 — CLASSIFIER
+  ══════════════════════════════════════════ -->
+  <div class="screen hidden" id="classifier">
+
+    <nav class="classifier-nav">
+      <div class="nav-logo">SceneLens <span>Intel Image Classifier</span></div>
+      <button class="back-btn" id="back-btn">← Back</button>
+    </nav>
+
+    <div class="classifier-body">
+
+      <!-- Upload panel -->
+      <div class="upload-panel">
+        <h2 class="panel-heading">Upload Image</h2>
+        <p class="panel-sub">Supported formats · JPG / PNG / WEBP</p>
+
+        <!-- Model selector -->
+        <div class="field-group">
+          <label class="field-label" for="framework-select">Select Model</label>
+          <div class="select-wrap">
+            <select id="framework-select">
+              <option value="pytorch">PyTorch CNN</option>
+              <option value="tensorflow">TensorFlow CNN</option>
+            </select>
+            <span class="select-arrow">▼</span>
+          </div>
+        </div>
+
+        <!-- Drop zone -->
+        <div class="drop-zone" id="drop-zone">
+          <input type="file" id="image-input" accept=".jpg,.jpeg,.png,.webp,image/*"/>
+          <div class="drop-icon-wrap">📁</div>
+          <p class="drop-title">Drop your image here</p>
+          <p class="drop-formats">
+            Accepted: <strong>JPG · PNG · WEBP</strong><br/>
+            Any outdoor or urban scene
+          </p>
+        </div>
+
+        <!-- Preview -->
+        <div id="preview-wrap">
+          <img id="preview-img" src="" alt="Image preview"/>
+          <div class="preview-bar">
+            <span class="preview-name" id="preview-name">filename.jpg</span>
+            <button class="preview-clear" id="clear-btn">✕ Remove</button>
+          </div>
+        </div>
+
+        <!-- Classify -->
+        <button class="classify-btn" id="classify-btn" disabled>
+          <span class="btn-label">Classify Image</span>
+          <div class="spinner"></div>
+        </button>
+      </div>
+
+      <!-- Result panel -->
+      <div class="result-panel">
+        <div class="result-panel-head">
+          <h2 class="panel-heading">Result</h2>
+          <p class="panel-sub">Model prediction output</p>
+        </div>
+
+        <!-- Empty state -->
+        <div class="empty-state" id="empty-state">
+          <div class="empty-icon">🌄</div>
+          <p class="empty-text">Upload an image and click<br/>"Classify Image" to see the result.</p>
+        </div>
+
+        <!-- Populated result -->
+        <div id="result-content"></div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <script>
+    /* ── Class emojis ──────────────────────────────────────────── */
+    const CLASS_EMOJIS = {
+      buildings: '🏙️',
+      forest:    '🌲',
+      glacier:   '🧊',
+      mountain:  '🏔️',
+      sea:       '🌊',
+      street:    '🛣️'
+    };
+
+    const CLASS_NAMES = ['buildings','forest','glacier','mountain','sea','street'];
+
+    /* ── Screen transitions ────────────────────────────────────── */
+    const welcomeScreen    = document.getElementById('welcome');
+    const classifierScreen = document.getElementById('classifier');
+
+    document.getElementById('get-started-btn').addEventListener('click', () => {
+      welcomeScreen.classList.add('hidden');
+      classifierScreen.classList.remove('hidden');
+    });
+
+    document.getElementById('back-btn').addEventListener('click', () => {
+      classifierScreen.classList.add('hidden');
+      welcomeScreen.classList.remove('hidden');
+    });
+
+    /* ── Upload logic ──────────────────────────────────────────── */
+    const dropZone    = document.getElementById('drop-zone');
+    const imageInput  = document.getElementById('image-input');
+    const previewWrap = document.getElementById('preview-wrap');
+    const previewImg  = document.getElementById('preview-img');
+    const previewName = document.getElementById('preview-name');
+    const clearBtn    = document.getElementById('clear-btn');
+    const classifyBtn = document.getElementById('classify-btn');
+    const emptyState  = document.getElementById('empty-state');
+    const resultContent = document.getElementById('result-content');
+
+    let selectedFile = null;
+
+    dropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) handleFile(file);
+    });
+
+    imageInput.addEventListener('change', () => {
+      if (imageInput.files[0]) handleFile(imageInput.files[0]);
+    });
+
+    function handleFile(file) {
+      selectedFile = file;
+      const reader = new FileReader();
+      reader.onload = e => {
+        previewImg.src = e.target.result;
+        previewName.textContent = file.name;
+        previewWrap.classList.add('visible');
+        classifyBtn.disabled = false;
+        clearResult();
+      };
+      reader.readAsDataURL(file);
+    }
+
+    clearBtn.addEventListener('click', () => {
+      selectedFile = null;
+      imageInput.value = '';
+      previewWrap.classList.remove('visible');
+      classifyBtn.disabled = true;
+      clearResult();
+    });
+
+    function clearResult() {
+      resultContent.innerHTML = '';
+      emptyState.style.display = 'flex';
+    }
+
+    /* ── Classify ──────────────────────────────────────────────── */
+    classifyBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+
+      classifyBtn.classList.add('loading');
+      classifyBtn.disabled = true;
+      emptyState.style.display = 'none';
+      resultContent.innerHTML = '';
+
+      const formData = new FormData();
+      formData.append('image', selectedFile);
+      formData.append('framework', document.getElementById('framework-select').value);
+
+      try {
+        const response = await fetch('/predict', { method: 'POST', body: formData });
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+          showError(data.error || 'An unexpected error occurred.');
+        } else {
+          showResult(data);
+        }
+      } catch (err) {
+        showError('Could not reach the server. Please check your connection.');
+      } finally {
+        classifyBtn.classList.remove('loading');
+        classifyBtn.disabled = false;
+      }
+    });
+
+    /* ── Render result ─────────────────────────────────────────── */
+    function showResult(data) {
+      const conf      = parseFloat(data.confidence);
+      const emoji     = CLASS_EMOJIS[data.class] || '🌍';
+      const framework = data.framework === 'pytorch' ? 'PyTorch CNN' : 'TensorFlow CNN';
+
+      // Build per-class score rows if backend returns them, else just show top class
+      let scoresHTML = '';
+      if (data.scores) {
+        const rows = CLASS_NAMES.map(cls => {
+          const pct = (data.scores[cls] * 100).toFixed(1);
+          const isTop = cls === data.class;
+          return `
+            <div class="score-row">
+              <span class="score-name">${cls}</span>
+              <div class="score-bar-track">
+                <div class="score-bar-fill ${isTop ? 'top' : ''}" data-width="${pct}"></div>
+              </div>
+              <span class="score-pct">${pct}%</span>
+            </div>`;
+        }).join('');
+        scoresHTML = `<div class="all-scores">${rows}</div>`;
+      }
+
+      resultContent.innerHTML = `
+        <div class="pred-card">
+          <p class="pred-label">Predicted Scene</p>
+          <span class="pred-emoji">${emoji}</span>
+          <div class="pred-class">${data.class}</div>
+          <div class="conf-label">
+            Confidence <span>${data.confidence}</span>
+          </div>
+          <div class="conf-track">
+            <div class="conf-fill" id="conf-fill"></div>
+          </div>
+          <div class="pred-meta">
+            <span class="meta-pill">Model <strong>${framework}</strong></span>
+          </div>
+          ${scoresHTML}
+        </div>`;
+
+      // Animate confidence bar
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const fill = document.getElementById('conf-fill');
+          if (fill) fill.style.width = `${conf}%`;
+
+          // Animate per-class bars if present
+          document.querySelectorAll('.score-bar-fill').forEach(bar => {
+            bar.style.width = `${bar.dataset.width}%`;
+          });
+        });
+      });
+    }
+
+    function showError(message) {
+      resultContent.innerHTML = `
+        <div class="error-card">
+          <p>⚠ ${message}</p>
+        </div>`;
+    }
+  </script>
+</body>
+</html>
