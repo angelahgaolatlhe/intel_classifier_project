@@ -469,17 +469,20 @@
       border: 2px dashed rgba(44,31,14,0.2);
       border-radius: var(--r-lg);
       background: var(--parchment);
-      padding: 32px 20px;
+      padding: 20px;
       text-align: center;
       cursor: pointer;
-      transition: border-color 0.25s, background 0.25s;
-      flex: 1;
-      min-height: 180px;
+      transition: border-color 0.25s, background 0.25s, opacity 0.3s;
+      min-height: 110px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 10px;
+      gap: 8px;
+    }
+
+    .drop-zone.file-selected {
+      display: none;
     }
 
     .drop-zone:hover,
@@ -531,7 +534,6 @@
     /* Preview */
     #preview-wrap {
       display: none;
-      margin-top: 18px;
       border-radius: var(--r-md);
       overflow: hidden;
       border: 1px solid rgba(44,31,14,0.12);
@@ -543,7 +545,7 @@
 
     #preview-img {
       width: 100%;
-      max-height: 210px;
+      max-height: 280px;
       object-fit: cover;
       display: block;
     }
@@ -875,7 +877,7 @@
   <div class="screen" id="welcome">
 
     <div class="welcome-visual">
-      <div class="visual-tag">Intel Image Dataset</div>
+      <div class="visual-tag">Intel Image Classification website</div>
       <div class="scene-labels">
         <span class="scene-label">Buildings</span>
         <span class="scene-label">Forest</span>
@@ -903,7 +905,7 @@
       <div class="welcome-divider"></div>
       <p class="welcome-desc">
         Leitlho le le ntshotsho uses two deep convolutional neural networks built with
-        PyTorch and TensorFlow and trained on the Intel Image Classification
+        PyTorch and TensorFlow andd trained on the Intel Image Classification
         dataset to identify natural and urban scenes from a single photograph.
       </p>
 
@@ -919,7 +921,7 @@
           <div class="step-num">2</div>
           <div class="step-text">
             <strong>Upload a photo</strong>
-            Upload a <strong>JPG, PNG or WEBP</strong> image of any outdoor scene — natural or urban.
+            Upload a <strong>JPG, PNG or WEBP</strong> image of any outdoor scene.
           </div>
         </div>
         <div class="step">
@@ -1079,6 +1081,7 @@
       reader.onload = e => {
         previewImg.src = e.target.result;
         previewName.textContent = file.name;
+        dropZone.classList.add('file-selected');
         previewWrap.classList.add('visible');
         classifyBtn.disabled = false;
         clearResult();
@@ -1089,6 +1092,7 @@
     clearBtn.addEventListener('click', () => {
       selectedFile = null;
       imageInput.value = '';
+      dropZone.classList.remove('file-selected');
       previewWrap.classList.remove('visible');
       classifyBtn.disabled = true;
       clearResult();
