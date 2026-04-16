@@ -174,7 +174,7 @@ python app.py
 Open:
 
 ```
-http://127.0.0.1:5000
+http://127.0.0.1:5000 (May differ)
 ```
 
 ---
@@ -195,13 +195,13 @@ Repository:
 Create a file named:
 
 ```
-runtime.txt
+.python-version
 ```
 
 Add:
 
 ```
-python-3.9.18
+3.11.9
 ```
 
 ---
@@ -239,7 +239,7 @@ pip install -r requirements.txt
 * **Start Command:**
 
 ```bash
-python app.py
+gunicorn app:app
 ```
 
 ---
@@ -260,6 +260,12 @@ Your app will be live at:
 ```
 https://your-app-name.onrender.com
 ```
+Mine is live at:
+
+```
+https://intel-image-classification-cs7n.onrender.com/
+
+```
 
 ---
 
@@ -268,6 +274,7 @@ https://your-app-name.onrender.com
 * Free tier may sleep after inactivity
 * No GPU support (CPU only)
 * Ensure correct file paths for models
+* Deploying both models may cause runtime error
 
 ---
 
