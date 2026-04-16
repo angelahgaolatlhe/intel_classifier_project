@@ -178,7 +178,7 @@ python app.py
 Open:
 
 ```
-http://127.0.0.1:5000 (May differ)
+http://192.168.1.103:10000 (May differ)
 ```
 
 ---
