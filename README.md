@@ -27,7 +27,8 @@ and get a predicted scene class from either model.
 
 ```
 Intel_Image_Classification/
-├── app.py                    # Flask backend — loads both models and serves /predict
+├── data                      # Intel Image Classification dataset
+├── requirements.txt          # Python dependencies
 ├── main.py                   # CLI training entry point (--framework pytorch|tensorflow)
 ├── pytorch_model.py          # PyTorch CNN definition and training loop
 ├── tensorflow_model.py       # TensorFlow CNN definition and training loop
@@ -35,10 +36,11 @@ Intel_Image_Classification/
 ├── tensorflow_evaluation.py  # TensorFlow evaluation script
 ├── angelah_model.pth         # Saved PyTorch model weights
 ├── angelah_model.keras       # Saved TensorFlow model
-├── runtime.txt               # Specifies Python version for deployment
+├── .python-version           # Specifies Python version for deployment
+├── gunicorn.conf.py          # For deployment of the app in render
 ├── templates/
 │   └── index.html            # Two-screen web interface (welcome + classifier)
-├── requirements.txt          # Python dependencies
+├── app.py                    # Flask backend — loads both models and serves /predict
 └── README.md                 # This file
 ```
 
@@ -143,6 +145,8 @@ Outputs:
 
 ---
 
+Feel free to change it to your_first_name_model.pth
+
 ## Evaluation
 
 **PyTorch:**
@@ -212,8 +216,8 @@ Add:
 import os
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port, debug=False)
 ```
 
 ---
